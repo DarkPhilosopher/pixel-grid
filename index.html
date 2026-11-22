@@ -69,12 +69,11 @@
 <script>
   const state = { size: 2, selectedPixel: 0, variables: { selfVar: 10, targetVar: 5 }, mathLinks: [], rules: [], manualPixels: {} };
   const BRIDGE_URL_KEY = 'pixelGrid.appsScriptWebAppUrl';
+  const DEFAULT_BRIDGE_URL = 'https://script.google.com/macros/s/AKfycbzDoVtqQYBshp3SVHnDocJ6SUp7MROhUPNMeRXgn8ggte-5fQ0WUcaLokaKHDqiaVbiiw/exec';
   function el(id) { return document.getElementById(id); }
   function saveBridgeUrl() {
     const url = el('bridgeUrl').value.trim();
-    if (url && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec\/?$/.test(url)) {
-      alert('Enter the deployed Google Apps Script Web App URL ending in /exec.'); return;
-    }
+    if (url && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec\/?$/.test(url)) { alert('Enter the deployed Google Apps Script Web App URL ending in /exec.'); return; }
     try { localStorage.setItem(BRIDGE_URL_KEY, url); alert(url ? 'Web App URL saved on this device.' : 'Saved URL cleared.'); }
     catch (error) { alert(`Could not save URL: ${error.message}`); }
   }
@@ -160,13 +159,19 @@
   function downloadLocalJSON(customName, customText) { const blob = new Blob([customText ?? el('jsonEditor').value], { type: 'application/json' }), url = URL.createObjectURL(blob), anchor = document.createElement('a'); anchor.href = url; anchor.download = customName || el('gmailFileName').value.trim() || 'pixel-state.json'; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
   function uploadLocalJSON(event) { const file = event.target.files && event.target.files[0]; if (!file) return; el('gmailFileName').value = file.name; const reader = new FileReader(); reader.onload = () => { el('jsonEditor').value = String(reader.result); applyEditorJSON(); }; reader.onerror = () => alert('Could not read the selected file.'); reader.readAsText(file); event.target.value = ''; }
   async function sendToGmail() {
-    let fname = el('gmailFileName').value.trim() || 'pixel-state.json'; if (!fname.toLowerCase().endsWith('.json')) fname += '.json';
+    let fname = el('gmailFileName').value.trim() || 'pixel-state.json';
+    if (!fname.toLowerCase().endsWith('.json')) fname += '.json';
     try {
       const url = `${getBaseUrl()}?action=upload&name=${encodeURIComponent(fname)}`;
-      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: el('jsonEditor').value });
-      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-      const result = await res.json(); if (result.status !== 'uploaded') throw new Error(result.error || 'Unexpected response from Apps Script.');
-      alert(`Sent ${fname} up to Gmail reserve!`); await refreshGmailList();
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: el('jsonEditor').value
+      });
+      alert(`Sent ${fname} up to Gmail reserve!`);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await refreshGmailList();
     } catch (error) { alert('Gmail Web App error: ' + error.message); }
   }
   async function refreshGmailList() {
@@ -184,7 +189,7 @@
       const text = await res.text(); el('gmailFileName').value = fname || ''; el('jsonEditor').value = text; applyEditorJSON(); if (saveFile) downloadLocalJSON(fname || 'pixel-state.json', text);
     } catch (error) { alert('Failed to pull from Gmail: ' + error.message); }
   }
-  try { el('bridgeUrl').value = localStorage.getItem(BRIDGE_URL_KEY) || ''; } catch (_) {}
+  try { el('bridgeUrl').value = localStorage.getItem(BRIDGE_URL_KEY) || DEFAULT_BRIDGE_URL; } catch (_) { el('bridgeUrl').value = DEFAULT_BRIDGE_URL; }
   render();
 </script>
 </body>
