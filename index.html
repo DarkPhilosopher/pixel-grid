@@ -161,17 +161,12 @@
   async function sendToGmail() {
     let fname = el('gmailFileName').value.trim() || 'pixel-state.json';
     if (!fname.toLowerCase().endsWith('.json')) fname += '.json';
+    const raw = el('jsonEditor').value;
     try {
-      const url = `${getBaseUrl()}?action=upload&name=${encodeURIComponent(fname)}`;
-      await fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: el('jsonEditor').value
-      });
+      const res = await fetch(`${getBaseUrl()}?action=upload&name=${encodeURIComponent(fname)}&data=${encodeURIComponent(raw)}`);
+      if (!res.ok) throw new Error('Upload failed');
       alert(`Sent ${fname} up to Gmail reserve!`);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      await refreshGmailList();
+      refreshGmailList();
     } catch (error) { alert('Gmail Web App error: ' + error.message); }
   }
   async function refreshGmailList() {
