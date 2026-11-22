@@ -3,22 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pixel Logic Grid &amp; Gmail JSON Explorer</title>
+  <title>Pixel Logic Grid and Gmail JSON Explorer</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: sans-serif; background: #121212; color: #eee; margin: 14px; }
     .layout { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
     .grid { display: inline-grid; gap: 4px; background: #333; padding: 6px; border-radius: 6px; }
-    .pixel { width: 54px; height: 54px; background: #222; border: 2px solid #555; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; }
+    .pixel { width: 54px; height: 54px; background: #222; border: 2px solid #555; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: #888; user-select: none; border-radius: 4px; }
     .pixel.on { background: #00e676; color: #000; font-weight: bold; border-color: #fff; }
     .pixel.selected { outline: 3px solid #2979ff; }
+    .pixel:focus-visible { outline: 3px solid #64b5f6; }
     .panel { background: #1e1e1e; padding: 14px; border-radius: 8px; max-width: 440px; width: 100%; }
     h3 { margin: 0 0 10px; font-size: 15px; border-bottom: 1px solid #333; padding-bottom: 6px; color: #64b5f6; }
     .row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
     input, select, button, textarea { padding: 7px 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 13px; }
-    textarea { width: 100%; height: 140px; font-family: monospace; font-size: 11.5px; margin-bottom: 8px; white-space: pre; overflow-x: auto; }
+    select { max-width: 100%; }
+    textarea { width: 100%; height: 140px; font-family: monospace; font-size: 11.5px; margin-bottom: 8px; white-space: pre; overflow: auto; }
     button { background: #2979ff; border: none; font-weight: bold; cursor: pointer; }
     button:active { opacity: 0.8; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #64b5f6; outline-offset: 2px; }
     button.sec { background: #444; }
     button.green { background: #2e7d32; }
     button.danger { background: #c62828; }
@@ -28,7 +31,6 @@
   </style>
 </head>
 <body>
-
 <div class="layout">
   <div>
     <div class="row">
@@ -37,15 +39,15 @@
       <button class="sec" onclick="toggleManualSelected()">Flip Selected</button>
       <button class="danger" onclick="clearManual()">Clear Manual</button>
     </div>
-    <div id="grid" class="grid"></div>
-    <p style="font-size:12px; color:#aaa; max-width:300px;">Tap pixel to select. Double-tap to flip ON/OFF.</p>
+    <div id="grid" class="grid" aria-label="Pixel grid"></div>
+    <p style="font-size:12px;color:#aaa;max-width:300px;">Tap a pixel to select it. Double-click or double-tap to flip it ON/OFF.</p>
   </div>
 
   <div class="panel">
     <h3>1. Variables</h3>
     <div class="row">
-      <input id="varName" placeholder="Name" style="width: 120px;">
-      <input id="varVal" type="number" step="any" placeholder="Value" style="width: 85px;">
+      <input id="varName" placeholder="Name" aria-label="Variable name" style="width:120px;">
+      <input id="varVal" type="number" step="any" placeholder="Value" aria-label="Variable value" style="width:85px;">
       <button onclick="addOrUpdateVar()">Set</button>
     </div>
     <div id="varList"></div>
@@ -54,81 +56,69 @@
     <div class="subbox">
       <div class="row">
         <span style="font-size:12px;color:#aaa;">Self:</span>
-        <select id="mathSelf"></select>
-        <select id="mathDir">
+        <select id="mathSelf" aria-label="Self variable"></select>
+        <select id="mathDir" aria-label="Modifier direction">
           <option value="take">Takes Target as...</option>
           <option value="offer">Offers Self to Target as...</option>
-          <option value="swap">Swaps with Target (&lt;-&gt;)</option>
+          <option value="swap">Swaps with Target (↔)</option>
           <option value="negate_self">Negates Self (-Self)</option>
           <option value="negate_target">Negates Target (-Target)</option>
         </select>
       </div>
       <div class="row" style="margin-bottom:0;">
-        <select id="mathOp">
-          <option value="add">+ Add</option>
-          <option value="sub">- Subtract</option>
-          <option value="mul">* Multiply</option>
-          <option value="div">/ Divide</option>
+        <select id="mathOp" aria-label="Math operation">
+          <option value="add">+ Add</option><option value="sub">- Subtract</option>
+          <option value="mul">* Multiply</option><option value="div">/ Divide</option>
         </select>
         <span style="font-size:12px;color:#aaa;">Target:</span>
-        <select id="mathTarget"></select>
+        <select id="mathTarget" aria-label="Target variable"></select>
         <button onclick="runImmediateMath()">Run</button>
         <button class="green" onclick="saveMathLink()">+ Link</button>
       </div>
     </div>
-    <div class="row" id="linkControls" style="display:none;">
-      <button class="green" onclick="runAllLinks()">Run All Links</button>
-    </div>
+    <div class="row" id="linkControls" style="display:none;"><button class="green" onclick="runAllLinks()">Run All Links</button></div>
     <div id="mathLinkList"></div>
 
     <h3 style="margin-top:16px;">3. Pixel Threshold Rules</h3>
-    <div style="font-size:13px; margin-bottom:8px;">Selected: <strong id="selLabel">P0 (0,0)</strong></div>
+    <div style="font-size:13px;margin-bottom:8px;">Selected: <strong id="selLabel">P0 (0,0)</strong></div>
     <div class="row">
-      <select id="ruleVar"></select>
-      <select id="ruleOp">
-        <option value=">=">&gt;=</option>
-        <option value="<=">&lt;=</option>
-        <option value="==">==</option>
-        <option value="&gt;">&gt;</option>
-        <option value="&lt;">&lt;</option>
+      <select id="ruleVar" aria-label="Rule variable"></select>
+      <select id="ruleOp" aria-label="Rule comparison">
+        <option value="gte">≥ (Greater or Equal)</option><option value="lte">≤ (Less or Equal)</option>
+        <option value="eq">== (Equal)</option><option value="gt">Greater Than</option><option value="lt">Less Than</option>
       </select>
-      <input id="ruleThresh" type="number" step="any" placeholder="Threshold" style="width: 85px;">
+      <input id="ruleThresh" type="number" step="any" placeholder="Threshold" aria-label="Rule threshold" style="width:85px;">
     </div>
     <div class="row">
-      <select id="ruleAction">
-        <option value="on">Turn ON</option>
-        <option value="off">Turn OFF</option>
-      </select>
+      <select id="ruleAction" aria-label="Rule action"><option value="on">Turn ON</option><option value="off">Turn OFF</option></select>
       <button onclick="addRule()">+ Add Rule</button>
     </div>
     <div id="ruleList"></div>
 
-    <h3 style="margin-top:16px;">4. JSON Live View / Edit &amp; Local Files</h3>
-    <textarea id="jsonEditor" spellcheck="false"></textarea>
+    <h3 style="margin-top:16px;">4. JSON Live View / Edit and Local Files</h3>
+    <textarea id="jsonEditor" spellcheck="false" aria-label="Grid state JSON"></textarea>
     <div class="row">
       <button class="green" onclick="applyEditorJSON()">Apply Edits to Grid</button>
       <button class="sec" onclick="downloadLocalJSON()">Download .json</button>
       <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="uploadLocalJSON(event)">
-      <button class="sec" onclick="document.getElementById('importFile').click()">Upload .json</button>
+      <button class="sec" onclick="el('importFile').click()">Upload .json</button>
     </div>
 
     <h3 style="margin-top:16px;">5. Gmail Reserve File Explorer</h3>
     <div class="row">
-      <input id="bridgeUrl" value="http://127.0.0.1:8080" placeholder="Python Bridge URL" style="width: 195px;">
+      <input id="bridgeUrl" value="http://127.0.0.1:8080" placeholder="Python Bridge URL" aria-label="Python bridge URL" style="width:195px;">
       <button class="sec" onclick="refreshGmailList()">Refresh List</button>
     </div>
     <div class="row">
-      <input id="gmailFileName" placeholder="File name (e.g. build1.json)" style="width: 195px;">
+      <input id="gmailFileName" placeholder="File name (e.g. build1.json)" aria-label="Gmail file name" style="width:195px;">
       <button class="green" onclick="sendToGmail()">Send Up to Gmail</button>
     </div>
-    <div id="gmailExplorer" class="explorer">
-      <div style="font-size:12px;color:#888;">Click "Refresh List" to browse .json files stored in Gmail...</div>
-    </div>
+    <div id="gmailExplorer" class="explorer"><div style="font-size:12px;color:#888;">Click “Refresh List” to browse .json files stored in Gmail...</div></div>
   </div>
 </div>
 
 <script>
-  let state = {
+  const state = {
     size: 2,
     selectedPixel: 0,
     variables: { selfVar: 10, targetVar: 5 },
@@ -136,6 +126,8 @@
     rules: [],
     manualPixels: {}
   };
+
+  function el(id) { return document.getElementById(id); }
 
   function changeRes(delta) {
     state.size = Math.max(2, Math.min(16, state.size + delta));
@@ -152,65 +144,364 @@
   function clearManual() { state.manualPixels = {}; render(); }
 
   function addOrUpdateVar() {
-    const name = document.getElementById('varName').value.trim();
-    const val = parseFloat(document.getElementById('varVal').value);
-    if (!name || isNaN(val)) return;
+    const name = el('varName').value.trim();
+    const val = Number(el('varVal').value);
+    if (!name || !Number.isFinite(val)) return;
     state.variables[name] = val;
-    document.getElementById('varName').value = '';
-    document.getElementById('varVal').value = '';
+    el('varName').value = '';
+    el('varVal').value = '';
     render();
   }
 
-  function deleteVar(name) { delete state.variables[name]; render(); }
-  function changeVarVal(name, delta) { state.variables[name] = (state.variables[name] || 0) + delta; render(); }
+  function deleteVar(name) {
+    delete state.variables[name];
+    state.rules = state.rules.filter(rule => rule.varName !== name);
+    render();
+  }
+
+  function changeVarVal(name, delta) {
+    const value = Number(state.variables[name] || 0) + delta;
+    if (Number.isFinite(value)) state.variables[name] = value;
+    render();
+  }
 
   function executeOp(link) {
-    const s = link.self, t = link.target;
-    if (state.variables[s] === undefined) return;
-    if (link.dir === 'negate_self') { state.variables[s] = -state.variables[s]; return; }
-    if (state.variables[t] === undefined) return;
+    if (!link || !link.self || !Object.hasOwn(state.variables, link.self)) return;
+    const s = link.self;
+    const t = link.target;
+    if (link.dir === 'negate_self') {
+      state.variables[s] = -state.variables[s];
+      return;
+    }
+    if (!t || !Object.hasOwn(state.variables, t)) return;
     if (link.dir === 'negate_target') state.variables[t] = -state.variables[t];
     else if (link.dir === 'swap') {
-      const tmp = state.variables[s]; state.variables[s] = state.variables[t]; state.variables[t] = tmp;
-    } else if (link.dir === 'take') {
-      const tVal = state.variables[t];
-      if (link.op === 'add') state.variables[s] += tVal;
-      else if (link.op === 'sub') state.variables[s] -= tVal;
-      else if (link.op === 'mul') state.variables[s] *= tVal;
-      else if (link.op === 'div' && tVal !== 0) state.variables[s] /= tVal;
-    } else if (link.dir === 'offer') {
-      const sVal = state.variables[s];
-      if (link.op === 'add') state.variables[t] += sVal;
-      else if (link.op === 'sub') state.variables[t] -= sVal;
-      else if (link.op === 'mul') state.variables[t] *= sVal;
-      else if (link.op === 'div' && sVal !== 0) state.variables[t] /= sVal;
+      [state.variables[s], state.variables[t]] = [state.variables[t], state.variables[s]];
+    } else if (link.dir === 'take' || link.dir === 'offer') {
+      const source = link.dir === 'take' ? t : s;
+      const destination = link.dir === 'take' ? s : t;
+      const operand = state.variables[source];
+      if (link.op === 'add') state.variables[destination] += operand;
+      else if (link.op === 'sub') state.variables[destination] -= operand;
+      else if (link.op === 'mul') state.variables[destination] *= operand;
+      else if (link.op === 'div' && operand !== 0) state.variables[destination] /= operand;
     }
   }
 
   function getFormLink() {
     return {
-      self: document.getElementById('mathSelf').value,
-      dir: document.getElementById('mathDir').value,
-      op: document.getElementById('mathOp').value,
-      target: document.getElementById('mathTarget').value
+      self: el('mathSelf').value,
+      dir: el('mathDir').value,
+      op: el('mathOp').value,
+      target: el('mathTarget').value
     };
   }
 
   function runImmediateMath() { executeOp(getFormLink()); render(); }
-  function saveMathLink() { const l = getFormLink(); if (l.self) { state.mathLinks.push(l); render(); } }
-  function runSingleLink(idx) { executeOp(state.mathLinks[idx]); render(); }
-  function runAllLinks() { state.mathLinks.forEach(l => executeOp(l)); render(); }
+  function saveMathLink() {
+    const link = getFormLink();
+    if (link.self) { state.mathLinks.push(link); render(); }
+  }
+  function runSingleLink(idx) {
+    if (state.mathLinks[idx]) executeOp(state.mathLinks[idx]);
+    render();
+  }
+  function runAllLinks() { state.mathLinks.forEach(executeOp); render(); }
   function deleteMathLink(idx) { state.mathLinks.splice(idx, 1); render(); }
 
-  function formatLinkLabel(l) {
-    const sym = { add: '+', sub: '-', mul: '*', div: '/' }[l.op] || '';
-    if (l.dir === 'swap') return `<b>${l.self}</b> &lt;-&gt; <b>${l.target}</b>`;
-    if (l.dir === 'negate_self') return `<b>${l.self}</b> = -${l.self}`;
-    if (l.dir === 'negate_target') return `<b>${l.target}</b> = -${l.target}`;
-    if (l.dir === 'take') return `<b>${l.self}</b> ${sym}= ${l.target}`;
-    if (l.dir === 'offer') return `<b>${l.target}</b> ${sym}= ${l.self}`;
-    return '';
+  function formatLinkLabel(link) {
+    const sym = { add: '+', sub: '-', mul: '*', div: '/' }[link.op] || '';
+    if (link.dir === 'swap') return `${link.self} ↔ ${link.target}`;
+    if (link.dir === 'negate_self') return `${link.self} = -${link.self}`;
+    if (link.dir === 'negate_target') return `${link.target} = -${link.target}`;
+    if (link.dir === 'take') return `${link.self} ${sym}= ${link.target}`;
+    if (link.dir === 'offer') return `${link.target} ${sym}= ${link.self}`;
+    return 'Invalid link';
   }
+
+  function addRule() {
+    const varName = el('ruleVar').value;
+    const op = el('ruleOp').value;
+    const threshold = Number(el('ruleThresh').value);
+    const action = el('ruleAction').value;
+    if (!varName || !Number.isFinite(threshold)) return;
+    state.rules.push({ pixel: state.selectedPixel, varName, op, threshold, action });
+    delete state.manualPixels[state.selectedPixel];
+    el('ruleThresh').value = '';
+    render();
+  }
+
+  function deleteRule(idx) { state.rules.splice(idx, 1); render(); }
+
+  function checkRuleMet(rule) {
+    const value = state.variables[rule.varName];
+    if (!Number.isFinite(value) || !Number.isFinite(rule.threshold)) return false;
+    switch (rule.op) {
+      case 'gte': case '>=': return value >= rule.threshold;
+      case 'lte': case '<=': return value <= rule.threshold;
+      case 'eq': case '==': return value === rule.threshold;
+      case 'gt': case '>': return value > rule.threshold;
+      case 'lt': case '<': return value < rule.threshold;
+      default: return false;
+    }
+  }
+
+  function opSymbol(op) {
+    return ({ gte: '≥', lte: '≤', eq: '==', gt: '>', lt: '<', '>=': '≥', '<=': '≤' })[op] || op;
+  }
+
+  function evaluatePixel(index) {
+    const rules = state.rules.filter(rule => rule.pixel === index);
+    let result = false;
+    for (const rule of rules) {
+      if (checkRuleMet(rule)) result = rule.action === 'on';
+    }
+    return Object.hasOwn(state.manualPixels, index) ? Boolean(state.manualPixels[index]) : result;
+  }
+
+  function addOption(select, value, label) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+
+  function render() {
+    el('resLabel').textContent = `${state.size}x${state.size}`;
+    const grid = el('grid');
+    grid.style.gridTemplateColumns = `repeat(${state.size}, 54px)`;
+    grid.replaceChildren();
+
+    for (let i = 0; i < state.size * state.size; i++) {
+      const pixel = document.createElement('div');
+      pixel.className = `pixel${evaluatePixel(i) ? ' on' : ''}${state.selectedPixel === i ? ' selected' : ''}`;
+      pixel.tabIndex = 0;
+      pixel.setAttribute('role', 'button');
+      pixel.setAttribute('aria-pressed', String(evaluatePixel(i)));
+      pixel.setAttribute('aria-label', `Pixel ${i}, row ${Math.floor(i / state.size)}, column ${i % state.size}${evaluatePixel(i) ? ', on' : ', off'}`);
+      const number = document.createElement('span');
+      number.textContent = `P${i}`;
+      const coordinates = document.createElement('span');
+      coordinates.style.fontSize = '9px';
+      coordinates.style.opacity = '0.7';
+      coordinates.textContent = `${Math.floor(i / state.size)},${i % state.size}`;
+      pixel.append(number, coordinates);
+      pixel.onclick = () => { state.selectedPixel = i; render(); };
+      pixel.ondblclick = () => { state.selectedPixel = i; toggleManualSelected(); };
+      pixel.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          state.selectedPixel = i;
+          toggleManualSelected();
+        }
+      };
+      grid.appendChild(pixel);
+    }
+
+    el('selLabel').textContent = `P${state.selectedPixel} (${Math.floor(state.selectedPixel / state.size)},${state.selectedPixel % state.size})`;
+    const previous = {
+      self: el('mathSelf').value,
+      target: el('mathTarget').value,
+      ruleVar: el('ruleVar').value
+    };
+    const varList = el('varList');
+    const ruleVar = el('ruleVar');
+    const mathSelf = el('mathSelf');
+    const mathTarget = el('mathTarget');
+    varList.replaceChildren();
+    ruleVar.replaceChildren();
+    mathSelf.replaceChildren();
+    mathTarget.replaceChildren();
+
+    const keys = Object.keys(state.variables);
+    keys.forEach(name => {
+      const row = document.createElement('div');
+      row.className = 'item';
+      const label = document.createElement('span');
+      label.textContent = `${name}: ${Number(state.variables[name].toFixed(6))}`;
+      const buttons = document.createElement('div');
+      const minus = document.createElement('button');
+      minus.className = 'sec'; minus.textContent = '-1';
+      minus.onclick = () => changeVarVal(name, -1);
+      const plus = document.createElement('button');
+      plus.className = 'sec'; plus.textContent = '+1';
+      plus.onclick = () => changeVarVal(name, 1);
+      const remove = document.createElement('button');
+      remove.className = 'danger'; remove.textContent = 'X';
+      remove.setAttribute('aria-label', `Delete variable ${name}`);
+      remove.onclick = () => deleteVar(name);
+      buttons.append(minus, ' ', plus, ' ', remove);
+      row.append(label, buttons);
+      varList.appendChild(row);
+      [ruleVar, mathSelf, mathTarget].forEach(select => addOption(select, name, name));
+    });
+
+    if (keys.includes(previous.self)) mathSelf.value = previous.self;
+    if (keys.includes(previous.target)) mathTarget.value = previous.target;
+    else if (keys.length > 1) mathTarget.value = keys[1];
+    if (keys.includes(previous.ruleVar)) ruleVar.value = previous.ruleVar;
+
+    const linkList = el('mathLinkList');
+    linkList.replaceChildren();
+    el('linkControls').style.display = state.mathLinks.length ? 'flex' : 'none';
+    state.mathLinks.forEach((link, index) => {
+      const row = document.createElement('div'); row.className = 'item';
+      const label = document.createElement('span'); label.textContent = formatLinkLabel(link);
+      const buttons = document.createElement('div');
+      const run = document.createElement('button'); run.className = 'green'; run.textContent = 'Step';
+      run.onclick = () => runSingleLink(index);
+      const remove = document.createElement('button'); remove.className = 'sec'; remove.textContent = 'X';
+      remove.setAttribute('aria-label', 'Delete modifier link');
+      remove.onclick = () => deleteMathLink(index);
+      buttons.append(run, ' ', remove); row.append(label, buttons); linkList.appendChild(row);
+    });
+
+    const ruleList = el('ruleList');
+    ruleList.replaceChildren();
+    state.rules.forEach((rule, index) => {
+      const met = checkRuleMet(rule);
+      const row = document.createElement('div'); row.className = 'item';
+      const label = document.createElement('span');
+      label.textContent = `P${rule.pixel}: ${String(rule.action).toUpperCase()} if ${rule.varName} ${opSymbol(rule.op)} ${rule.threshold} [${met ? 'TRUE' : 'FALSE'}]`;
+      label.style.color = met ? '#00e676' : '#ccc';
+      const remove = document.createElement('button'); remove.className = 'sec'; remove.textContent = 'X';
+      remove.setAttribute('aria-label', 'Delete pixel rule');
+      remove.onclick = () => deleteRule(index);
+      row.append(label, remove); ruleList.appendChild(row);
+    });
+
+    el('jsonEditor').value = JSON.stringify(state, null, 2);
+  }
+
+  function applyLoadedState(loaded) {
+    if (!loaded || typeof loaded !== 'object' || Array.isArray(loaded)) throw new Error('The JSON must contain a state object.');
+    const next = {
+      size: Number.isInteger(loaded.size) ? Math.max(2, Math.min(16, loaded.size)) : state.size,
+      selectedPixel: Number.isInteger(loaded.selectedPixel) ? loaded.selectedPixel : 0,
+      variables: state.variables,
+      mathLinks: Array.isArray(loaded.mathLinks) ? loaded.mathLinks : [],
+      rules: Array.isArray(loaded.rules) ? loaded.rules : [],
+      manualPixels: loaded.manualPixels && typeof loaded.manualPixels === 'object' && !Array.isArray(loaded.manualPixels) ? loaded.manualPixels : {}
+    };
+    if (loaded.variables !== undefined) {
+      if (!loaded.variables || typeof loaded.variables !== 'object' || Array.isArray(loaded.variables)) throw new Error('Variables must be an object.');
+      next.variables = {};
+      for (const [name, value] of Object.entries(loaded.variables)) {
+        if (!Number.isFinite(value)) throw new Error(`Variable “${name}” must be a finite number.`);
+        next.variables[name] = value;
+      }
+    }
+    const pixelCount = next.size * next.size;
+    next.selectedPixel = next.selectedPixel >= 0 && next.selectedPixel < pixelCount ? next.selectedPixel : 0;
+    next.rules = next.rules.filter(rule => rule && Number.isInteger(rule.pixel) && rule.pixel >= 0 && rule.pixel < pixelCount && typeof rule.varName === 'string' && Number.isFinite(rule.threshold) && ['on', 'off'].includes(rule.action));
+    const pixels = {};
+    for (const [index, value] of Object.entries(next.manualPixels)) {
+      const pixel = Number(index);
+      if (Number.isInteger(pixel) && pixel >= 0 && pixel < pixelCount && typeof value === 'boolean') pixels[pixel] = value;
+    }
+    next.manualPixels = pixels;
+    next.mathLinks = next.mathLinks.filter(link => link && typeof link.self === 'string' && typeof link.dir === 'string');
+    state.size = next.size;
+    state.selectedPixel = next.selectedPixel;
+    state.variables = next.variables;
+    state.mathLinks = next.mathLinks;
+    state.rules = next.rules;
+    state.manualPixels = next.manualPixels;
+    render();
+  }
+
+  function applyEditorJSON() {
+    try { applyLoadedState(JSON.parse(el('jsonEditor').value)); }
+    catch (error) { alert(`Could not apply JSON: ${error.message}`); }
+  }
+
+  function downloadLocalJSON(customName, customText) {
+    const text = customText ?? el('jsonEditor').value;
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = customName || el('gmailFileName').value.trim() || 'pixel-state.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function uploadLocalJSON(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    el('gmailFileName').value = file.name;
+    const reader = new FileReader();
+    reader.onload = () => {
+      el('jsonEditor').value = String(reader.result);
+      applyEditorJSON();
+    };
+    reader.onerror = () => alert('Could not read the selected file.');
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
+  function getBaseUrl() { return el('bridgeUrl').value.trim().replace(/\/+$/, ''); }
+
+  async function sendToGmail() {
+    let fileName = el('gmailFileName').value.trim() || 'pixel-state.json';
+    if (!fileName.toLowerCase().endsWith('.json')) fileName += '.json';
+    try {
+      const response = await fetch(`${getBaseUrl()}/upload?name=${encodeURIComponent(fileName)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: el('jsonEditor').value
+      });
+      if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+      alert(`Sent ${fileName} to the Gmail reserve.`);
+      await refreshGmailList();
+    } catch (error) {
+      alert(`Bridge connection error: ${error.message}`);
+    }
+  }
+
+  async function refreshGmailList() {
+    const box = el('gmailExplorer');
+    box.textContent = 'Scanning Gmail reserve...';
+    try {
+      const response = await fetch(`${getBaseUrl()}/list`);
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      const files = await response.json();
+      if (!Array.isArray(files)) throw new Error('The bridge returned an invalid file list.');
+      box.replaceChildren();
+      if (!files.length) { box.textContent = 'No .json files found in Gmail yet.'; return; }
+      files.forEach(file => {
+        const row = document.createElement('div'); row.className = 'item';
+        const label = document.createElement('span');
+        label.textContent = `${file.name || 'Unnamed file'} (${file.date || 'date unknown'})`;
+        const buttons = document.createElement('div');
+        const load = document.createElement('button'); load.className = 'green'; load.textContent = 'View/Load';
+        load.onclick = () => loadFromGmail(file.id, file.name, false);
+        const download = document.createElement('button'); download.className = 'sec'; download.textContent = 'Download';
+        download.onclick = () => loadFromGmail(file.id, file.name, true);
+        buttons.append(load, ' ', download); row.append(label, buttons); box.appendChild(row);
+      });
+    } catch (error) {
+      box.textContent = `Could not reach Python bridge (${error.message})`;
+    }
+  }
+
+  async function loadFromGmail(messageId, fileName, saveFile) {
+    try {
+      const response = await fetch(`${getBaseUrl()}/get?id=${encodeURIComponent(messageId)}`);
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      const text = await response.text();
+      el('gmailFileName').value = fileName || '';
+      el('jsonEditor').value = text;
+      applyEditorJSON();
+      if (saveFile) downloadLocalJSON(fileName || 'pixel-state.json', text);
+    } catch (error) {
+      alert(`Failed to pull from Gmail: ${error.message}`);
+    }
+  }
+
+  render();
 </script>
 </body>
 </html>
