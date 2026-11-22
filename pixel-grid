@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixel Logic Grid &amp; Gmail JSON Explorer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; background: #121212; color: #eee; margin: 14px; }
+    .layout { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+    .grid { display: inline-grid; gap: 4px; background: #333; padding: 6px; border-radius: 6px; }
+    .pixel { width: 54px; height: 54px; background: #222; border: 2px solid #555; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: #888; user-select: none; border-radius: 4px; }
+    .pixel.on { background: #00e676; color: #000; font-weight: bold; border-color: #fff; }
+    .pixel.selected { outline: 3px solid #2979ff; }
+    .panel { background: #1e1e1e; padding: 14px; border-radius: 8px; max-width: 440px; width: 100%; }
+    h3 { margin: 0 0 10px; font-size: 15px; border-bottom: 1px solid #333; padding-bottom: 6px; color: #64b5f6; }
+    .row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+    input, select, button, textarea { padding: 7px 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 13px; }
+    textarea { width: 100%; height: 140px; font-family: monospace; font-size: 11.5px; margin-bottom: 8px; white-space: pre; overflow-x: auto; }
+    button { background: #2979ff; border: none; font-weight: bold; cursor: pointer; }
+    button:active { opacity: 0.8; }
+    button.sec { background: #444; }
+    button.green { background: #2e7d32; }
+    button.danger { background: #c62828; }
+    .item { background: #262626; padding: 7px 9px; border-radius: 4px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; gap: 6px; }
+    .subbox { background: #252525; padding: 9px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #333; }
+    .explorer { max-height: 180px; overflow-y: auto; border: 1px solid #333; border-radius: 4px; padding: 6px; background: #181818; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+  <div>
+    <div class="row">
+      <button onclick="changeRes(1)">+ Res (<span id="resLabel">2x2</span>)</button>
+      <button class="sec" onclick="changeRes(-1)">- Res</button>
+      <button class="sec" onclick="toggleManualSelected()">Flip Selected</button>
+      <button class="danger" onclick="clearManual()">Clear Manual</button>
+    </div>
+    <div id="grid" class="grid"></div>
+    <p style="font-size:12px; color:#aaa; max-width:300px;">Tap pixel to select. Double-tap to flip ON/OFF.</p>
+  </div>
+
+  <div class="panel">
+    <h3>1. Variables</h3>
+    <div class="row">
+      <input id="varName" placeholder="Name" style="width: 120px;">
+      <input id="varVal" type="number" step="any" placeholder="Value" style="width: 85px;">
+      <button onclick="addOrUpdateVar()">Set</button>
+    </div>
+    <div id="varList"></div>
+
+    <h3 style="margin-top:16px;">2. Variable Modifiers (Take / Offer)</h3>
+    <div class="subbox">
+      <div class="row">
+        <span style="font-size:12px;color:#aaa;">Self:</span>
+        <select id="mathSelf"></select>
+        <select id="mathDir">
+          <option value="take">Takes Target as...</option>
+          <option value="offer">Offers Self to Target as...</option>
+          <option value="swap">Swaps with Target (&lt;-&gt;)</option>
+          <option value="negate_self">Negates Self (-Self)</option>
+          <option value="negate_target">Negates Target (-Target)</option>
+        </select>
+      </div>
+      <div class="row" style="margin-bottom:0;">
+        <select id="mathOp">
+          <option value="add">+ Add</option>
+          <option value="sub">- Subtract</option>
+          <option value="mul">* Multiply</option>
+          <option value="div">/ Divide</option>
+        </select>
+        <span style="font-size:12px;color:#aaa;">Target:</span>
+        <select id="mathTarget"></select>
+        <button onclick="runImmediateMath()">Run</button>
+        <button class="green" onclick="saveMathLink()">+ Link</button>
+      </div>
+    </div>
+    <div class="row" id="linkControls" style="display:none;">
+      <button class="green" onclick="runAllLinks()">Run All Links</button>
+    </div>
+    <div id="mathLinkList"></div>
+
+    <h3 style="margin-top:16px;">3. Pixel Threshold Rules</h3>
+    <div style="font-size:13px; margin-bottom:8px;">Selected: <strong id="selLabel">P0 (0,0)</strong></div>
+    <div class="row">
+      <select id="ruleVar"></select>
+      <select id="ruleOp">
+        <option value=">=">&gt;=</option>
+        <option value="<=">&lt;=</option>
+        <option value="==">==</option>
+        <option value=">">&gt;</option>
+        <option value="<">&lt;</option>
+      </select>
+      <input id="ruleThresh" type="number" step="any" placeholder="Threshold" style="width: 85px;">
+    </div>
+    <div class="row">
+      <select id="ruleAction">
+        <option value="on">Turn ON</option>
+        <option value="off">Turn OFF</option>
+      </select>
+      <button onclick="addRule()">+ Add Rule</button>
+    </div>
+    <div id="ruleList"></div>
+
+    <h3 style="margin-top:16px;">4. JSON Live View / Edit &amp; Local Files</h3>
+    <textarea id="jsonEditor" spellcheck="false"></textarea>
+    <div class="row">
+      <button class="green" onclick="applyEditorJSON()">Apply Edits to Grid</button>
+      <button class="sec" onclick="downloadLocalJSON()">Download .json</button>
+      <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="uploadLocalJSON(event)">
+      <button class="sec" onclick="document.getElementById('importFile').click()">Upload .json</button>
+    </div>
+
+    <h3 style="margin-top:16px;">5. Gmail Reserve File Explorer</h3>
+    <div class="row">
+      <input id="bridgeUrl" value="http://127.0.0.1:8080" placeholder="Python Bridge URL" style="width: 195px;">
+      <button class="sec" onclick="refreshGmailList()">Refresh List</button>
+    </div>
+    <div class="row">
+      <input id="gmailFileName" placeholder="File name (e.g. build1.json)" style="width: 195px;">
+      <button class="green" onclick="sendToGmail()">Send Up to Gmail</button>
+    </div>
+    <div id="gmailExplorer" class="explorer">
+      <div style="font-size:12px;color:#888;">Click "Refresh List" to browse .json files stored in Gmail...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let state = {
+    size: 2,
+    selectedPixel: 0,
+    variables: { selfVar: 10, targetVar: 5 },
+    mathLinks: [],
+    rules: [],
+    manualPixels: {}
+  };
+
+  function changeRes(delta) {
+    state.size = Math.max(2, Math.min(16, state.size + delta));
+    if (state.selectedPixel >= state.size * state.size) state.selectedPixel = 0;
+    render();
+  }
+
+  function toggleManualSelected() {
+    const idx = state.selectedPixel;
+    state.manualPixels[idx] = !evaluatePixel(idx);
+    render();
+  }
+
+  function clearManual() { state.manualPixels = {}; render(); }
+
+  function addOrUpdateVar() {
+    const name = document.getElementById('varName').value.trim();
+    const val = parseFloat(document.getElementById('varVal').value);
+    if (!name || isNaN(val)) return;
+    state.variables[name] = val;
+    document.getElementById('varName').value = '';
+    document.getElementById('varVal').value = '';
+    render();
+  }
+
+  function deleteVar(name) { delete state.variables[name]; render(); }
+  function changeVarVal(name, delta) { state.variables[name] = (state.variables[name] || 0) + delta; render(); }
+
+  function executeOp(link) {
+    const s = link.self, t = link.target;
+    if (state.variables[s] === undefined) return;
+    if (link.dir === 'negate_self') { state.variables[s] = -state.variables[s]; return; }
+    if (state.variables[t] === undefined) return;
+    if (link.dir === 'negate_target') state.variables[t] = -state.variables[t];
+    else if (link.dir === 'swap') {
+      const tmp = state.variables[s]; state.variables[s] = state.variables[t]; state.variables[t] = tmp;
+    } else if (link.dir === 'take') {
+      const tVal = state.variables[t];
+      if (link.op === 'add') state.variables[s] += tVal;
+      else if (link.op === 'sub') state.variables[s] -= tVal;
+      else if (link.op === 'mul') state.variables[s] *= tVal;
+      else if (link.op === 'div' && tVal !== 0) state.variables[s] /= tVal;
+    } else if (link.dir === 'offer') {
+      const sVal = state.variables[s];
+      if (link.op === 'add') state.variables[t] += sVal;
+      else if (link.op === 'sub') state.variables[t] -= sVal;
+      else if (link.op === 'mul') state.variables[t] *= sVal;
+      else if (link.op === 'div' && sVal !== 0) state.variables[t] /= sVal;
+    }
+  }
+
+  function getFormLink() {
+    return {
+      self: document.getElementById('mathSelf').value,
+      dir: document.getElementById('mathDir').value,
+      op: document.getElementById('mathOp').value,
+      target: document.getElementById('mathTarget').value
+    };
+  }
+
+  function runImmediateMath() { executeOp(getFormLink()); render(); }
+  function saveMathLink() { const l = getFormLink(); if (l.self) { state.mathLinks.push(l); render(); } }
+  function runSingleLink(idx) { executeOp(state.mathLinks[idx]); render(); }
+  function runAllLinks() { state.mathLinks.forEach(l => executeOp(l)); render(); }
+  function deleteMathLink(idx) { state.mathLinks.splice(idx, 1); render(); }
+
+  function formatLinkLabel(l) {
+    const sym = { add: '+', sub: '-', mul: '*', div: '/' }[l.op] || '';
+    if (l.dir === 'swap') return `<b>${l.self}</b> &lt;-&gt; <b>${l.target}</b>`;
+    if (l.dir === 'negate_self') return `<b>${l.self}</b> = -${l.self}`;
+    if (l.dir === 'negate_target') return `<b>${l.target}</b> = -${l.target}`;
+    if (l.dir === 'take') return `<b>${l.self}</b> ${sym}= ${l.target}`;
